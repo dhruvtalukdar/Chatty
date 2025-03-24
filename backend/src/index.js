@@ -1,8 +1,10 @@
 import express from 'express';
 import AuthRoute from './routes/auth.route.js';
+import { connectDB } from './config/mongoose-connection.js';
 
 const app = express();
 
+connectDB();
 app.use(express.json());
 
 app.get('/', (req, res) => {
