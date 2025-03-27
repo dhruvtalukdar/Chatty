@@ -2,20 +2,21 @@ import express from 'express';
 
 const router = express.Router();
 
-router.get('/random', (req, res) => {
-    res.send("This is your real time chat application which is running on /api/auth");
+router.post("/signup", (req, res) => {
+    res.send("Signup route");
 });
 
-router.post('/signUp', (req, res) => {
-    res.send("Sign Up");
+router.post("/signin", (req, res) => {
+    res.send("Signin route");
 });
 
-router.post('/signIn', (req, res) => {
-    res.send("Sign In");
+router.post("/signout", (req, res) => {
+    res.send("Signout route");
 });
 
-router.post('/signOut', (req, res) => {
-    res.send("Sign Out");
+
+router.put("/update-profile", (req, res) => {
+    res.send("Update profile route");
 });
 
 export default router;
