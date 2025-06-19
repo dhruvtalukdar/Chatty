@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-import { connectDB } from "../lib/db.js";
+import { connectDB } from "../config/mongoose-connection.js";
 import User from "../models/user.model.js";
 
 config();
