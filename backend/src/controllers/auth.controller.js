@@ -1,4 +1,4 @@
-import { registerUser, loginUser } from '../services/auth.service.js';
+import { registerUser, loginUser, refreshAccessToken } from '../services/auth.service.js';
 import User from '../models/user.model.js';
 import cloudinary from '../lib/cloudinary.js';
 
@@ -6,13 +6,24 @@ import cloudinary from '../lib/cloudinary.js';
 export const register = async (req, res) => {
     try {
         const { email, fullName, password } = req.body;
-        const { user, token } = await registerUser(email, password, fullName);
+        const { user, accessToken, refreshToken } = await registerUser(email, password, fullName);
 
-        // console.log(user._id);
-        res.cookie("token", token);
-        res.status(201).json({
-            user, token
-        });
+        // set cookies
+        res
+            .cookie("accessToken", accessToken, {
+                httpOnly: true,
+                sameSite: "Strict",
+                maxAge: 15 * 60 * 1000, // 15mins
+                path: "/"
+            })
+            .cookie("refreshToken", refreshToken, {
+                httpOnly: true,
+                sameSite: "Strict",
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+                path: "/"       
+            });
+
+        res.status(201).json({ user });
         console.log("User registered succesfully");
     }
     catch (err) {
@@ -29,18 +40,21 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        const { user, token } = await loginUser(email, password);
+        const { user, accessToken, refreshToken } = await loginUser(email, password);
 
-        res.cookie("token", token, {
+        res.cookie("refreshToken", refreshToken, {
             httpOnly: true,
+            // secure: process.env.NODE_ENV === "production",
+            sameSite: "strict", // or "Lax" depending on frontend
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             path: "/",
         });
 
         console.log("Cookie headers has been set");
-        // res.json({ success: true, message: "Login successful!", redirectUrl: "/users/about", token: `${token}` });
         console.log("User logged in successfully");
+        // res.json({ success: true, message: "Login successful!", redirectUrl: "/users/about", token: `${token}` });
         res.status(200).json({
-            user, token
+            user, accessToken, refreshToken
         })
     }
     catch(err) {
@@ -61,10 +75,35 @@ export const getAllUser = async (req, res) => {
     }
 }
 
-export const logout = (req, res) => {
+export const logoutUser = async (req, res) => {
     try {
-        res.cookie("token", "", { maxAge: 0 });
+        // Optional : Invalidate refresh token (add to blacklist or remove from DB)
+        // blacklist.add(token);
+        // res.cookie("token", "", { maxAge: 0 });
+        
+        // -- Storing the refresh token in DB -- //
+        // const refreshToken = req.cookies.refreshToken;
+        // if(!refreshToken) {
+        //     return res.status(400).json({ message: "No refresh token found!" });
+        // }
+
+        // const user = await User.findOne({ refreshToken });
+
+        // if(user) {
+        //     user.refreshToken = null;
+        //     await user.save();
+        // }
+        console.log("Cookies received on logout:", req.cookies);
+
+
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            // secure: process.env.NODE_ENV === "production",
+            sameSite: "strict",
+            path: "/"
+        })
         res.status(200).json({ message: "Logged out successfully" });
+        console.log("User logged out succesfully");
     }
     catch(error) {
         console.error("Error logging out: ", error.message);
@@ -109,128 +148,19 @@ export const checkAuth = (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
-// export const signup = async (req, res) => {
-//     const { email, fullName, password } = req.body;
 
-//     try {
-//         if (!fullName || !email || !password) {
-//             return res.Status(400).json({ message: "All fields are required" });
-//         }
+export const refresh = async (req, res) => {
+    try{
+        const refreshToken = req.cookies.refreshToken;
+        if(!refreshToken) {
+            return res.status(401).json({ message: "Unauthorized - No Token Provided" });
+        }
 
-//         if (password.length < 6) {
-//             return res.status(400).json({ message: "Password must be at least 6 characters" });
-//         }
-
-//         const user = await User.findOne({ email});
-
-//         if (user) {
-//             return res.status(400).json({ message: "User already exists" });
-//         }
-
-//         const hashedPassword = await hashPassword(password); 
-
-//         const newUser = new User({
-//             email,
-//             fullName,
-//             password: hashedPassword
-//         });
-
-//         if (newUser) {
-//             generateToken(newUser, res);
-//             await newUser.save();
-
-//             res.status(201).json({
-//                 _id: newUser._id,
-//                 email: newUser.email,
-//                 fullName: newUser.fullName,
-//                 profilePic: newUser.profilePic
-//             });
-//         } else {
-//             res.status(400).json({ message: "Invalid user data" });
-//         } 
-//     }
-//     catch (error) {
-//         console.log("Error in signup controller: ", error.message);
-//         res.status(500).json({ message: "Something went wrong" });
-//     }
-// } 
-
-// export const login = async (req, res) => {
-//     const { email, password } = req.body;
-
-//     try {
-//         if (!email || !password) {
-//             return res.status(400).json({ message: "All fields are required" });
-//         }
-
-//         const user = await User.findOne({ email });
-
-//         if (!user) {
-//             return res.status(400).json({ message: "Invalid credentials" });
-//         }
-
-//         const isMatch = await bcrypt.compare(password, user.password);
-
-//         if (!isMatch) {
-//             return res.status(400).json({ message: "Invalid credentials" });
-//         }
-
-//         generateToken(user, res);
-
-//         res.status(200).json({
-//             _id: user._id,
-//             email: user.email,
-//             fullName: user.fullName,
-//             profilePic: user.profilePic
-//         });
-//     }
-//     catch (error) {
-//         console.log("Error in login controller: ", error.message);
-//         res.status(500).json({ message: "Something went wrong" });
-//     }
-// }
-
-// export const logout = (req, res) => {
-//     try {
-//         res.cookie("jwt", "", { maxAge: 0});
-//         res.status(200).json({ message: "Logged out successfully" });
-//     }
-//     catch (error) {
-//         console.log("Error in logout controller: ", error.message);
-//         res.status(500).json({ message: "Something went wrong" });
-//     }
-// };
-
-// export const updateProfile = async (req, res) => {
-//     try {
-//         const { profilePic } = req.body;
-//         const userId = req.user._id;
-
-//         if (!profilePic) {
-//             return res.status(400).json({ message: "Profile picture is required" });
-//         }
-
-//         const uploadResponse = await cloudinary.uploader.upload(profilePic);
-//         const updatedUser = await User.findByIdAndUpdate(
-//             userId, 
-//             { profilePic: uploadResponse.secure_url }, 
-//             { new: true }
-//         );
-
-//         res.status(200).json(updatedUser);
-//     }
-//     catch (error) {
-//         console.log("Error in updateProfile controller: ", error.message);
-//         res.status(500).json({ message: "Something went wrong" });
-//     }
-// }
-
-// export const checkAuth = (req, res) => {
-//     try {
-//         res.status(200).json(req.user);
-//     }
-//     catch (error) {
-//         console.log("Error in checkAuth controller: ", error.message);
-//         res.status(500).json({ message: "Something went wrong" });
-//     }
-// }
+        const newAccessToken = await refreshAccessToken(refreshToken);
+        res.json({ newAccessToken: newAccessToken });
+    }
+    catch(err) {
+        console.error("Error generating access token", err.message);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
