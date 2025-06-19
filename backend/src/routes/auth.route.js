@@ -1,5 +1,5 @@
 import express from 'express';
-import { register, login, getAllUser, logout, updateProfile, checkAuth } from '../controllers/auth.controller.js';
+import { register, login, refresh, getAllUser, logoutUser, updateProfile, checkAuth } from '../controllers/auth.controller.js';
 import { protectRoute } from '../middlewares/auth.middleware.js';
 
 const router = express.Router();
@@ -16,8 +16,11 @@ router.post("/register", register);
 // login a user
 router.post("/login", login);
 
+// generating access token with refresh token
+router.post("/refresh", refresh);
+
 // logout a user
-router.get("/logout", logout);
+router.post("/logout", logoutUser);
 
 // update profile
 router.post("/update-profile", protectRoute, updateProfile);
