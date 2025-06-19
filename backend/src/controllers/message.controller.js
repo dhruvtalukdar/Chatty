@@ -4,17 +4,17 @@ import Message from '../models/message.model.js';
 import cloudinary from '../lib/cloudinary.js';
 import { getRecieverSocketId } from '../lib/socket.js';
 
-// need to use middleware
+// need to use middleware : used
 export const getUsersForSidebar = async (req, res) => {
     try {
-        const { email } = req.body;
-        const requestedUser = await User.findOne({email});
+        // const { email } = req.body;
+        // const requestedUser = await User.findOne({email});
 
-        if (!requestedUser) {
-            return res.status(404).json({ message: "User not found!"});
-        }
+        // if (!requestedUser) {
+        //     return res.status(404).json({ message: "User not found!"});
+        // }
 
-        const loggedInUserId = requestedUser._id;
+        const loggedInUserId = req.user._id;
         const filteredUsers = await User.find({ _id: { $ne: loggedInUserId }}).select("-password");
 
         res.status(200).json(filteredUsers);
@@ -47,8 +47,13 @@ export const getMessages = async (req, res) => {
 export const sendMessage = async (req, res) => {
     try {
         const { text, image } = req.body;
-        const { id: recieverId } = req.params;
+        const { id: receiverId } = req.params;
         const senderId = req.user._id;
+        
+
+        // if (!image) {
+        //     throw new Error("Invalid image format");
+        //   }
 
         let imageUrl;
         if (image) {
@@ -59,16 +64,17 @@ export const sendMessage = async (req, res) => {
 
         const newMessage = new Message({
             senderId,
-            recieverId,
+            receiverId,
             text,
             image: imageUrl,
         });
 
         await newMessage.save();
+        console.log("Message being saved:", newMessage);
 
-        const recieverSocketId = getRecieverSocketId(recieverId);
-        if (recieverSocketId) {
-            io.to(recieverSocketId).emit("newMessage", newMessage);
+        const receiverSocketId = getRecieverSocketId(receiverId); // Correct field name
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("newMessage", newMessage);
         }
 
         res.status(201).json(newMessage);
