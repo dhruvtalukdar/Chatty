@@ -3,6 +3,9 @@ import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
 
+const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:3000" : "/";
+
+
 export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
